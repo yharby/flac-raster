@@ -5,524 +5,414 @@
 [![Python versions](https://img.shields.io/pypi/pyversions/flac-raster.svg)](https://pypi.org/project/flac-raster/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-An experimental CLI tool that converts TIFF raster data files into FLAC audio format while preserving all geospatial metadata, CRS, and bounds information. This proof-of-concept explores using FLAC's lossless compression for geospatial data storage and introduces **revolutionary HTTP range streaming** for efficient geospatial data access - **"Netflix for Geospatial Data"**.
-
-## 🚀 **NEW: Netflix-Style Streaming for Geospatial Data**
-
-FLAC-Raster now supports **true streaming** exactly like Netflix and Spotify - each tile is a complete, self-contained FLAC file that can be decoded independently! 
-
-### 🎵 **Two Streaming Formats:**
-
-1. **Raw Frames Format** (15MB) - High compression, full file download only
-2. **🆕 Streaming Format** (185MB) - Netflix-style independent tiles, perfect for HTTP range streaming
-
-### **✨ Streaming Features:**
-- **🎬 Netflix-style tiles**: Each tile is a complete, independent FLAC file
-- **🌐 HTTP range streaming**: Stream individual tiles via precise byte range requests
-- **⚡ Instant access**: Decode any tile without downloading the full file
-- **💰 99%+ bandwidth savings**: Download only what you need (0.8MB vs 185MB)
-- **🗺️ Geographic precision**: Query specific areas with pixel-perfect accuracy
-- **📱 Web-native**: Works with any HTTP server, CDN, or browser
-- **🔗 URL support**: Query remote FLAC files directly via HTTPS URLs
-- **🎯 Smart indexing**: Spatial metadata for instant tile discovery
+An experimental CLI tool that converts TIFF raster data files into FLAC audio format while preserving all geospatial metadata, CRS, and bounds information. This proof-of-concept explores using FLAC's lossless compression for geospatial data storage and introduces **HTTP range streaming** for efficient geospatial data access - **"Netflix for Geospatial Data"**.
 
 ## Features
 
-- **Bidirectional conversion**: TIFF → FLAC and FLAC → TIFF
+### Core Capabilities
+
+- **Bidirectional conversion**: TIFF to FLAC and FLAC to TIFF
 - **Complete metadata preservation**: CRS, bounds, transform, data type, nodata values
-- **🆕 Embedded metadata**: All geospatial metadata stored directly in FLAC files (no sidecar files!)
-- **🆕 Spatial tiling**: Convert rasters to tiled FLAC with bbox metadata per tile
-- **🆕 HTTP range streaming**: Query and stream data by bounding box with 90%+ bandwidth savings
-- **🆕 Exceptional compression**: 7-15× file size reduction while maintaining lossless quality
-- **Intelligent audio parameters**: Automatically selects sample rate and bit depth based on raster properties
-- **Multi-band support**: Seamlessly handles multi-band rasters (RGB, multispectral) as multi-channel audio
-- **Lossless compression**: Perfect reconstruction verified - no data loss
-- **FLAC chunking**: Uses FLAC's frame-based compression (4096 samples/frame)
-- **Comprehensive logging**: Verbose mode with detailed progress tracking
-- **Colorful CLI**: Built with Typer and Rich for an intuitive experience
+- **All satellite data types supported**: uint8, int8, uint16, int16, uint32, int32, float32, float64
+- **Multi-band support**: Up to 8 bands (RGB, multispectral, hyperspectral)
+- **Lossless compression**: 7-15x size reduction with perfect reconstruction
+- **Embedded metadata**: All geospatial metadata stored directly in FLAC files (no sidecar files)
+
+### Remote Access (NEW in v0.2.0)
+
+- **HTTP/HTTPS URLs**: Direct access to remote FLAC files
+- **Cloud Storage**: Native support for S3, Azure Blob, and Google Cloud Storage via obstore
+- **Async Reading**: High-performance async COG reading via async-geotiff
+- **HTTP Range Requests**: Stream only the tiles you need (99%+ bandwidth savings)
+
+### Streaming Architecture
+
+FLAC-Raster supports two formats:
+
+1. **Standard Format** - Single FLAC file, highest compression ratio
+2. **Streaming Format** - Netflix-style independent tiles for HTTP range streaming
 
 ## Installation
 
-### Prerequisites
-First, install pixi:
+### Using Pixi (Recommended)
+
 ```bash
 # Install pixi (cross-platform package manager)
 curl -fsSL https://pixi.sh/install.sh | bash
-# or via conda: conda install -c conda-forge pixi
-```
 
-### Clone and Setup
-```bash
+# Clone and setup
 git clone https://github.com/Youssef-Harby/flac-raster.git
 cd flac-raster
-pixi install  # Install all dependencies
+
+# Install with default features
+pixi install
+
+# Or with cloud storage support
+pixi install -e cloud
+
+# Or with async COG reading
+pixi install -e async
+
+# Or with all features
+pixi install -e full
 ```
 
-### Install the CLI tool
+### Using pip
+
 ```bash
-# For regular use:
-pixi run pip install .
-
-# For development (editable install):
-pixi run pip install -e .
-```
-
-### Alternative: Direct pip installation
-```bash
-pip install rasterio numpy typer rich tqdm pyflac mutagen
-
-# Or install from PyPI (when published):
+# Basic installation
 pip install flac-raster
+
+# With cloud storage support (S3, Azure, GCS)
+pip install flac-raster[cloud]
+
+# With async COG reading
+pip install flac-raster[async]
+
+# With all optional features
+pip install flac-raster[all]
 ```
 
 ## Usage
 
-### Basic Commands
+### CLI Commands
 
-After installation, you can use the CLI directly:
+FLAC-Raster provides 5 main commands:
 
-1. **Convert TIFF to FLAC**:
-   ```bash
-   flac-raster convert input.tif -o output.flac
-   ```
+#### 1. Convert
 
-2. **Convert FLAC back to TIFF**:
-   ```bash
-   flac-raster convert input.flac -o output.tif
-   ```
-
-3. **Get file information**:
-   ```bash
-   flac-raster info file.tif
-   flac-raster info file.flac
-   ```
-
-4. **Compare two TIFF files**:
-   ```bash
-   flac-raster compare original.tif reconstructed.tif
-   ```
-
-### 🆕 Spatial Tiling & Netflix-Style Streaming
-
-5. **Create spatial FLAC with tiling**:
-   ```bash
-   # Raw frames format (high compression, 15MB)
-   flac-raster convert input.tif --spatial -o spatial.flac
-   
-   # 🆕 Streaming format (Netflix-style tiles, 185MB)
-   flac-raster create-streaming input.tif --tile-size=1024 --output=streaming.flac
-   
-   # Custom tile size (256x256)
-   flac-raster convert input.tif --spatial --tile-size 256 -o spatial.flac
-   ```
-
-6. **Query spatial FLAC by bounding box**:
-   ```bash
-   # Query local file (raw frames)
-   flac-raster query spatial.flac --bbox "xmin,ymin,xmax,ymax"
-   
-   # 🆕 Query streaming FLAC (local or remote)
-   python test_streaming.py local_streaming.flac --bbox "34.1,28.6,34.3,28.8"
-   
-   # 🆕 Stream from remote URL (Netflix-style!)
-   python test_streaming.py "https://example.com/streaming.flac" --tile-id=120
-   
-   # Example with real coordinates
-   flac-raster query spatial.flac --bbox "-105.3,40.3,-105.1,40.5"
-   ```
-
-7. **🆕 Extract tiles from Netflix-style streaming FLAC**:
-   ```bash
-   # Extract center tile from remote streaming FLAC
-   flac-raster extract-streaming "https://example.com/streaming.flac" --center --output=center.tif
-   
-   # Extract last tile
-   flac-raster extract-streaming "local_streaming.flac" --last --output=last_tile.tif
-   
-   # Extract by tile ID
-   flac-raster extract-streaming "streaming.flac" --tile-id=60 --output=tile_60.tif
-   
-   # Extract by bounding box
-   flac-raster extract-streaming "https://cdn.example.com/data.flac" --bbox="602380,3090240,609780,3097640" --output=bbox_tile.tif
-   ```
-
-8. **View spatial index information**:
-   ```bash
-   flac-raster spatial-info spatial.flac  # Raw frames format only
-   # For streaming format, use extract-streaming with analysis
-   ```
-
-### 🌐 Live Demo: Real Remote Streaming
-
-Try our live streaming FLAC files hosted on Storj DCS with real Sentinel-2 B04 band data:
-
-#### **📍 Single Tile Extraction (99%+ Bandwidth Savings)**
+Convert between TIFF and FLAC formats:
 
 ```bash
-# 🎯 Extract center tile (coordinates: 554,880, 3,145,140)
-flac-raster extract-streaming \
-  "https://link.storjshare.io/raw/ju6tov7vffpleabbilqgxfpxz5cq/truemaps-public/flac-raster/B04_streaming.flac" \
-  --center --output=center_1km.tif
-# → Downloads: 1.5 MB | Result: 1024×1024 center tile
+# TIFF to FLAC
+flac-raster convert input.tif -o output.flac
 
-# 📦 Extract last tile (southeast corner)  
-flac-raster extract-streaming \
-  "https://link.storjshare.io/raw/ju6tov7vffpleabbilqgxfpxz5cq/truemaps-public/flac-raster/B04_streaming.flac" \
-  --last --output=southeast_corner.tif
-# → Downloads: 0.8 MB | Result: 740×740 edge tile
+# FLAC to TIFF
+flac-raster convert input.flac -o output.tif
 
-# 🎬 Extract specific tile by ID (northwest corner)
-flac-raster extract-streaming \
-  "https://link.storjshare.io/raw/ju6tov7vffpleabbilqgxfpxz5cq/truemaps-public/flac-raster/B04_streaming.flac" \
-  --tile-id=0 --output=northwest_corner.tif
-# → Downloads: 1.5 MB | Result: 1024×1024 first tile
+# With spatial tiling (for streaming)
+flac-raster convert input.tif --streaming --tile-size 1024 -o streaming.flac
+
+# From remote URL
+flac-raster convert https://example.com/data.tif -o output.flac
+flac-raster convert s3://bucket/data.tif -o output.flac
 ```
 
-#### **🗺️ Geographic Bounding Box Extraction**
-
-```bash
-# 📍 Extract specific geographic area (1km² in center)
-flac-raster extract-streaming \
-  "https://link.storjshare.io/raw/ju6tov7vffpleabbilqgxfpxz5cq/truemaps-public/flac-raster/B04_streaming.flac" \
-  --bbox="554380,3144640,555380,3145640" \
-  --output=center_1km_bbox.tif
-# → Downloads: 1.5 MB | Result: Exact geographic area
-
-# 📍 Extract southeast corner area (last tile region)
-flac-raster extract-streaming \
-  "https://link.storjshare.io/raw/ju6tov7vffpleabbilqgxfpxz5cq/truemaps-public/flac-raster/B04_streaming.flac" \
-  --bbox="602380,3090240,609780,3097640" \
-  --output=southeast_bbox.tif  
-# → Downloads: 0.8 MB | Result: 740×740 edge region
-
-# 📍 Extract northwest area (first tile region)
-flac-raster extract-streaming \
-  "https://link.storjshare.io/raw/ju6tov7vffpleabbilqgxfpxz5cq/truemaps-public/flac-raster/B04_streaming.flac" \
-  --bbox="499980,3189800,510220,3200040" \
-  --output=northwest_bbox.tif
-# → Downloads: 1.5 MB | Result: 1024×1024 corner region
-```
-
-#### **🌍 Full Dataset Access**
-
-```bash
-# 📥 Download full dataset (use raw frames format for efficiency)
-flac-raster convert \
-  "https://link.storjshare.io/raw/juxc544kagtqgkvhezix6wzia5yq/truemaps-public/flac-raster/B04_spatial.flac" \
-  --output=full_sentinel_B04.tif
-# → Downloads: 15 MB | Result: Complete 10,980×10,980 Sentinel-2 dataset
-
-# ⚠️ Note: For full datasets, use the raw frames format (15MB) instead of 
-#          streaming format (177MB) for better compression efficiency
-```
-
-#### **📊 Performance Comparison**
-
-| **Use Case** | **Command** | **Download Size** | **Output** | **Savings** |
-|--------------|-------------|-------------------|------------|-------------|
-| **Single tile** | `--center` | 1.5 MB | 1024×1024 | **99.2%** |
-| **Corner tile** | `--last` | 0.8 MB | 740×740 | **99.5%** |
-| **Bbox query** | `--bbox="..."` | 0.8-1.5 MB | Exact area | **99%+** |
-| **Full dataset** | Raw frames format | 15 MB | 10,980×10,980 | **91.5%** |
-| **Full streaming** | All 121 tiles | 177 MB | 10,980×10,980 | **0%** ❌ |
-
-**Netflix-Style Benefits:**
-- ⚡ **Instant metadata**: 21KB spatial index loaded once
-- 🎯 **Precision targeting**: Download only needed geographic areas  
-- 🗺️ **Perfect quality**: Pixel-perfect GeoTIFF output with full metadata
-- 💰 **Massive savings**: 99%+ bandwidth reduction for area-specific queries
-
-**Alternative**: Use `python main.py` if you haven't installed the package:
-```bash
-python main.py convert input.tif  # Direct script usage
-```
-
-### Options
-
-#### Convert command:
-- `--output, -o`: Specify output file path (auto-generates if not provided)
+Options:
+- `--output, -o`: Output file path
 - `--compression, -c`: FLAC compression level 0-8 (default: 5)
-- `--force, -f`: Overwrite existing output files
-- `--verbose, -v`: Enable verbose logging for detailed progress
-- `--spatial, -s`: 🆕 Enable spatial tiling (raw frames format)
-- `--tile-size`: 🆕 Size of spatial tiles in pixels (default: 512x512)
+- `--streaming`: Create streaming format with independent tiles
+- `--tile-size`: Tile size in pixels (default: 512)
+- `--force, -f`: Overwrite existing files
+- `--verbose, -v`: Enable verbose logging
 
-#### 🆕 Extract-tile command (for raw frames format):
-- `--bbox, -b`: Bounding box as 'xmin,ymin,xmax,ymax'
-- `--output, -o`: Output TIFF file path (required)
+#### 2. Info
 
-#### 🚀 Extract-streaming command (for Netflix-style streaming format):
-- `--bbox, -b`: Bounding box as 'xmin,ymin,xmax,ymax'
-- `--tile-id`: Extract specific tile by ID number
-- `--center`: Extract center tile automatically
-- `--last`: Extract last tile
-- `--output, -o`: Output TIFF file path (required)
-
-#### Query command:
-- `--bbox, -b`: Bounding box as 'xmin,ymin,xmax,ymax' (required)
-- `--output, -o`: Output file for extracted data
-- `--format, -f`: Output format: 'ranges' (default) or 'data'
-
-#### 🆕 Streaming test commands:
-- `--tile-id`: Extract specific tile by ID number
-- `--bbox`: Extract tile by geographic bounding box
-- `--last`: Extract last tile (default)
-- `--savings`: Show bandwidth savings analysis
-
-#### Compare command:
-- `--show-bands/--no-bands`: Show per-band statistics (default: True)
-- `--export, -e`: Export comparison results to JSON file
-- `--help`: Show help message
-
-### Example Workflow
+Display file information:
 
 ```bash
-# Create sample data
-python examples/create_test_data.py
+# Local file
+flac-raster info data.tif
+flac-raster info data.flac
 
-# Convert DEM to FLAC
-flac-raster convert test_data/sample_dem.tif -v
+# Remote file
+flac-raster info https://example.com/data.flac
+flac-raster info s3://bucket/data.tif
+```
 
-# Check the FLAC file info
-flac-raster info test_data/sample_dem.flac
+#### 3. Extract
 
-# Convert back to TIFF
-flac-raster convert test_data/sample_dem.flac -o test_data/dem_reconstructed.tif
+Extract tiles from streaming FLAC files:
 
-# Compare original and reconstructed
-flac-raster compare test_data/sample_dem.tif test_data/dem_reconstructed.tif
+```bash
+# Extract by tile ID
+flac-raster extract streaming.flac --tile-id 42 -o tile.tif
+
+# Extract by bounding box
+flac-raster extract streaming.flac --bbox "xmin,ymin,xmax,ymax" -o area.tif
+
+# Extract center tile
+flac-raster extract streaming.flac --center -o center.tif
+
+# From remote URL (downloads only the requested tile)
+flac-raster extract https://cdn.example.com/streaming.flac --center -o center.tif
+```
+
+Options:
+- `--tile-id`: Extract specific tile by ID
+- `--bbox, -b`: Bounding box as 'xmin,ymin,xmax,ymax'
+- `--center`: Extract center tile
+- `--last`: Extract last tile
+- `--output, -o`: Output file path (required)
+
+#### 4. Query
+
+Query spatial index and find tiles:
+
+```bash
+# Find tiles intersecting a bounding box
+flac-raster query spatial.flac --bbox "-105.3,40.3,-105.1,40.5"
+
+# Get byte ranges for HTTP streaming
+flac-raster query spatial.flac --bbox "xmin,ymin,xmax,ymax" --format ranges
+```
+
+Options:
+- `--bbox, -b`: Bounding box to query (required)
+- `--format, -f`: Output format: 'ranges' or 'data'
+- `--output, -o`: Output file for extracted data
+
+#### 5. Compare
+
+Compare two TIFF files for verification:
+
+```bash
+flac-raster compare original.tif reconstructed.tif
 
 # Export comparison to JSON
-flac-raster compare test_data/sample_dem.tif test_data/dem_reconstructed.tif --export comparison.json
-
-# Test with multi-band data
-flac-raster convert test_data/sample_rgb.tif
-flac-raster convert test_data/sample_rgb.flac -o test_data/rgb_reconstructed.tif
-flac-raster compare test_data/sample_rgb.tif test_data/rgb_reconstructed.tif
-
-# Open in QGIS to verify
-# The reconstructed files should be viewable in QGIS with all metadata intact
+flac-raster compare original.tif reconstructed.tif --export comparison.json
 ```
 
-## How It Works
+### Python API
 
-### TIFF to FLAC Conversion
+```python
+from flac_raster import (
+    RasterFLACConverter,
+    SpatialFLACEncoder,
+    SpatialFLACStreamer,
+    normalize_to_audio,
+    denormalize_from_audio,
+)
 
-1. **Read raster data** and extract all metadata (CRS, bounds, transform, etc.)
-2. **Spatial tiling** (if enabled): Divide raster into configurable tile sizes
-3. **Calculate audio parameters**:
-   - Sample rate: Based on image resolution (44.1kHz to 192kHz)
-   - Bit depth: Matches the raster's bit depth (16 or 24-bit, minimum 16-bit due to FLAC decoder limitations)
-4. **Normalize data** to audio range (-1 to 1)
-5. **Reshape data**: Bands become audio channels, pixels become samples
-   - Single-band → Mono audio
-   - Multi-band (RGB, multispectral) → Multi-channel audio
-6. **Encode to FLAC** with configurable compression
-7. **Embed metadata** directly in FLAC using VORBIS_COMMENT blocks
-8. **Generate spatial index** with bbox and byte range information for each tile
+# Basic conversion
+converter = RasterFLACConverter()
+converter.tiff_to_flac("input.tif", "output.flac")
+converter.flac_to_tiff("output.flac", "reconstructed.tif")
 
-### FLAC to TIFF Conversion
+# Spatial encoding with streaming support
+encoder = SpatialFLACEncoder(tile_size=1024)
+encoder.encode("input.tif", "streaming.flac", streaming=True)
 
-1. **Decode FLAC** file and extract audio samples
-2. **Load metadata** from embedded FLAC metadata (with JSON sidecar fallback)
-3. **Reconstruct spatial index** for tiled data
-4. **Reshape audio** back to raster dimensions
-   - Mono → Single-band raster
-   - Multi-channel → Multi-band raster
-5. **Denormalize** to original data range
-6. **Write GeoTIFF** with all original metadata preserved
+# Stream tiles from remote
+streamer = SpatialFLACStreamer("https://example.com/streaming.flac")
+tile_data, metadata = streamer.get_tile_by_id(42)
+tiles = streamer.get_tiles_by_bbox(xmin, ymin, xmax, ymax)
+```
 
-## Metadata Preservation
+### Async API (Optional)
 
-The tool preserves all geospatial metadata **directly embedded in FLAC files**:
-- Width and height dimensions
-- Number of bands  
-- Data type (uint8, int16, float32, etc.)
-- Coordinate Reference System (CRS)
-- Geospatial transform (affine transformation matrix)
-- Bounding box coordinates
-- Original data min/max values
-- NoData values
-- **Spatial index**: Compressed tile bbox and byte range information
-- Original driver information
+```python
+from flac_raster import AsyncGeoTIFFReader, read_geotiff_async
 
-### Embedded Metadata Format
+# Async reading from cloud storage
+async with AsyncGeoTIFFReader("s3://bucket/data.tif") as reader:
+    # Read full data
+    data = await reader.read()
 
-Metadata is stored in FLAC VORBIS_COMMENT blocks:
+    # Read a window
+    window_data = await reader.read_window(0, 0, 512, 512)
+
+    # Read a tile
+    tile_data = await reader.read_tile(tile_x=2, tile_y=3)
+
+# Functional API
+data, metadata = await read_geotiff_async("https://example.com/cog.tif")
+```
+
+## Supported Data Types
+
+| Data Type | Bits | Use Cases |
+|-----------|------|-----------|
+| uint8 | 8-bit | RGB composites, classification maps |
+| int8 | 8-bit | Signed byte data |
+| uint16 | 16-bit | Sentinel-2, Landsat, most satellite imagery |
+| int16 | 16-bit | DEMs, signed integer data |
+| uint32 | 32-bit | Large count data |
+| int32 | 32-bit | Signed 32-bit integer data |
+| float32 | 32-bit | Reflectance, NDVI, processed data |
+| float64 | 64-bit | High-precision floating point |
+
+All data types are properly normalized to the audio range and can be perfectly reconstructed.
+
+## Remote URL Support
+
+FLAC-Raster supports multiple remote storage backends:
+
+| Protocol | Example | Requirements |
+|----------|---------|--------------|
+| HTTP/HTTPS | `https://example.com/data.flac` | Built-in |
+| Amazon S3 | `s3://bucket/path/data.tif` | `pip install flac-raster[cloud]` |
+| Azure Blob | `az://container/path/data.tif` | `pip install flac-raster[cloud]` |
+| Google Cloud | `gs://bucket/path/data.tif` | `pip install flac-raster[cloud]` |
+
+For cloud storage, credentials are read from environment variables or default credential chains.
+
+## Performance
+
+### Compression Results
+
+| Dataset | Original | FLAC | Compression |
+|---------|----------|------|-------------|
+| DEM (1201x1201, int16) | 2.8 MB | 185 KB | 15.25x |
+| Multispectral (200x200x6, uint8) | 235 KB | 32 KB | 7.38x |
+| RGB (256x256x3, uint8) | 193 KB | 27 KB | 7.26x |
+
+### HTTP Range Streaming Efficiency
+
+| Use Case | Download Size | Full File | Savings |
+|----------|---------------|-----------|---------|
+| Single tile | 1.5 MB | 185 MB | 99.2% |
+| Corner tile | 0.8 MB | 185 MB | 99.5% |
+| Bbox query | 0.8-1.5 MB | 185 MB | 99%+ |
+
+## Technical Details
+
+### Data Flow
+
+```
+GeoTIFF Input
+    |
+    v
+Read raster data + metadata
+    |
+    v
+Normalize to audio range [-1, 1]
+    |
+    v
+Convert to int16/int32 PCM
+    |
+    v
+Encode as FLAC (multi-channel)
+    |
+    v
+Embed metadata in VORBIS_COMMENT
+    |
+    v
+FLAC Output
+```
+
+### Embedded Metadata
+
+All geospatial information is stored in FLAC VORBIS_COMMENT blocks:
+
 ```
 GEOSPATIAL_CRS=EPSG:4326
 GEOSPATIAL_WIDTH=1201
 GEOSPATIAL_HEIGHT=1201
-GEOSPATIAL_SPATIAL_INDEX=<base64(gzip(spatial_index_json))>
+GEOSPATIAL_TRANSFORM=...
+GEOSPATIAL_BOUNDS=...
+GEOSPATIAL_DATA_MIN=...
+GEOSPATIAL_DATA_MAX=...
+GEOSPATIAL_SPATIAL_INDEX=<base64(gzip(json))>
+```
+
+### Streaming Format Structure
+
+```
+[4 bytes: index size]
+[JSON spatial index]
+[Complete FLAC Tile 1]
+[Complete FLAC Tile 2]
 ...
+[Complete FLAC Tile N]
 ```
 
-## Lazy Loading & HTTP Range Streaming for Web GIS
-
-### Concept: "Zarr for Geospatial Data using Audio Compression"
-
-The lazy loading feature transforms FLAC-Raster into a **web-native geospatial format** that enables efficient HTTP range request streaming:
-
-```
-FLAC URL: https://cdn.example.com/elevation.flac
-        ↓
-🏃‍♂️ Lazy Load: Download first 1MB for metadata only
-        ↓
-Query Spatial Index: Find intersecting tiles for bbox
-        ↓
-HTTP Range Request: bytes=48152-73513,87850-113211
-        ↓  
-⬇️ Smart Download: Only 76KB instead of 189KB (60% savings!)
-        ↓
-Decode FLAC: Get pixels for visible area only
-```
-
-### Lazy Loading Workflow
-
-1. **Metadata First**: Download only 1MB to read embedded spatial index
-2. **On-Demand Streaming**: Query specific geographic areas
-3. **Precise Downloads**: HTTP Range requests for intersecting tiles only
-4. **Progressive Loading**: Cache tiles for repeated access
-
-### Use Cases
-
-1. **Interactive Web Maps**
-   - Progressive loading as users pan/zoom
-   - Only download visible area data  
-   - Works with any HTTP server/CDN
-
-2. **Cloud-Native GIS**
-   - Stream large rasters without specialized servers
-   - Compatible with S3, CloudFront, etc.
-   - No need for complex tiling servers
-
-3. **Bandwidth-Constrained Applications** 
-   - Mobile mapping apps
-   - Satellite/field data collection
-   - IoT sensor networks
-
-### Web Server Integration
-
-```javascript
-// JavaScript lazy loading client example
-async function loadRasterData(bbox) {
-    const flacUrl = '/data/elevation.flac';
-    
-    // 1. Lazy load: get metadata only (first 1MB)
-    const metadataResponse = await fetch(flacUrl, {
-        headers: { 'Range': 'bytes=0-1048575' }
-    });
-    const spatialIndex = extractEmbeddedMetadata(metadataResponse);
-    
-    // 2. Find byte ranges for bbox
-    const ranges = calculateRanges(bbox, spatialIndex);
-    
-    // 3. Stream only needed tiles via HTTP ranges
-    const rangeHeader = ranges.map(r => `${r.start}-${r.end}`).join(',');
-    const dataResponse = await fetch(flacUrl, {
-        headers: { 'Range': `bytes=${rangeHeader}` }
-    });
-    
-    // 4. Decode FLAC data for bbox
-    return decodeFLACTiles(dataResponse.body, bbox);
-}
-```
-
-## Technical Details
-
-### 🎵 **Netflix-Style Streaming Architecture**
-
-FLAC-Raster implements two distinct formats for different use cases:
-
-#### **Raw Frames Format** (Legacy)
-- **FLAC frames**: Raw frame chunks within single FLAC file
-- **Compression**: Exceptional compression (15MB for 185MB streaming equivalent) 
-- **Use case**: Full file downloads, highest compression ratio
-- **Limitation**: Cannot stream individual tiles
-
-#### **🆕 Streaming Format** (Netflix-Style)
-- **Self-contained tiles**: Each tile is a complete, independent FLAC file
-- **HTTP range ready**: Perfect byte boundaries for range requests
-- **Instant decode**: Any tile can be decoded without full file context
-- **Format structure**:
-  ```
-  [4 bytes index size][JSON spatial index][Complete FLAC Tile 1][Complete FLAC Tile 2]...[Complete FLAC Tile N]
-  ```
-
-### **Core Technologies**
-- **🆕 Complete FLAC segments**: Each tile includes full FLAC headers and metadata
-- **🆕 HTTP byte ranges**: Precise byte offsets enable partial downloads  
-- **🆕 Embedded metadata**: All geospatial info stored in FLAC VORBIS_COMMENT blocks
-- **🆕 Spatial indexing**: JSON metadata with bbox coordinates and byte ranges
-- **Multi-band support**: Each raster band becomes an audio channel (up to 8 channels supported by FLAC)
-- **Lossless conversion**: Data is normalized but the process is completely reversible
-- **Exceptional compression**: Leverages FLAC's compression algorithms (7-15× size reduction)
-- **Self-contained files**: No external dependencies or sidecar files required
-- **Data type mapping**:
-  - uint8 → 16-bit FLAC (due to decoder limitations)
-  - int16/uint16 → 16-bit FLAC
-  - int32/uint32/float32 → 24-bit FLAC
-
-## Performance Examples
-
-From comprehensive testing against `report.md` analysis:
-
-### Compression Results
-- **DEM file** (1201×1201, int16): 2.8 MB → 185 KB FLAC (**15.25× compression**)
-- **Multispectral** (200×200×6, uint8): 235 KB → 32 KB FLAC (**7.38× compression**)
-- **RGB** (256×256×3, uint8): 193 KB → 27 KB FLAC (**7.26× compression**)
-
-### HTTP Range Streaming Efficiency
-- **Small area queries**: Up to **98.8% bandwidth savings** vs full download
-- **Geographic precision**: Query exact areas with pixel-perfect accuracy
-- **Optimized ranges**: Smart merging of contiguous tiles reduces HTTP requests
-
-All conversions are perfectly lossless (verified with numpy array comparison)
+Each tile is a complete, self-contained FLAC file that can be decoded independently.
 
 ## Limitations
 
 - Maximum 8 bands (FLAC channel limitation)
 - Minimum 16-bit encoding (pyflac decoder limitation)
+- FLAC bit depths: 16 or 24-bit only
 - Large rasters may take time to process
-- FLAC format limitations apply (specific bit depths: 16, 24-bit)
-- Requires mutagen library for embedded metadata support
-- Experimental: Not recommended for production use without thorough testing
+- Experimental: Not recommended for production without thorough testing
 
 ## Project Structure
 
 ```
 flac-raster/
-├── src/flac_raster/          # Main package
-│   ├── __init__.py           # Package initialization
+├── src/flac_raster/
+│   ├── __init__.py           # Package exports
 │   ├── cli.py                # Command-line interface
 │   ├── converter.py          # Core conversion logic
-│   ├── spatial_encoder.py    # 🆕 Spatial tiling & HTTP range streaming
-│   ├── metadata_encoder.py   # 🆕 Embedded metadata handling
+│   ├── spatial_encoder.py    # Spatial tiling and streaming
+│   ├── normalization.py      # Data normalization (NEW)
+│   ├── remote.py             # Remote file access (NEW)
+│   ├── async_reader.py       # Async COG reading (NEW)
+│   ├── metadata_encoder.py   # Embedded metadata handling
 │   └── compare.py            # Comparison utilities
+├── tests/                    # Test suite
+├── docs/                     # Documentation
+│   └── TECHNICAL_ANALYSIS.md # Technical analysis with diagrams
 ├── examples/                 # Example scripts
-│   ├── create_test_data.py   # Generate test datasets
-│   └── spatial_streaming_example.py  # 🆕 HTTP range streaming demo
-├── test_data/               # Test datasets
-│   ├── dem-raw.tif          # Large DEM for testing
-│   ├── sample_multispectral.tif  # 6-band multispectral
-│   └── sample_rgb.tif       # RGB test data
-├── report.md                # 🆕 Comprehensive analysis & benchmarks
-├── main.py                  # Main entry point
-├── pyproject.toml           # Project configuration
-├── README.md                # This file
-└── pixi.toml               # Pixi package configuration
+├── pixi.toml                 # Pixi configuration
+├── pyproject.toml            # Python project configuration
+└── README.md                 # This file
 ```
 
-## CI/CD & Publishing
+## Development
 
-This project uses GitHub Actions for:
-- **Continuous Integration**: Tests on Python 3.9-3.12 across Windows, macOS, and Linux
-- **Automated Building**: Package building and validation
-- **PyPI Publishing**: Automatic publishing on release creation
-- **Quality Assurance**: Integration testing via CLI commands
+### Environment Setup (Pixi + uv)
 
-### Publishing to PyPI
-See [PUBLISHING.md](PUBLISHING.md) for detailed instructions on publishing releases.
+Pixi provides Python and GDAL/rasterio (conda), uv manages Python packages:
+
+```bash
+# Install base environment (python, uv, rasterio)
+pixi install
+
+# Sync Python dependencies with uv
+pixi run install          # or: pixi run uv sync
+pixi run install-dev      # with all extras: pixi run uv sync --all-extras
+```
+
+### Running Commands
+
+```bash
+# Run commands via pixi tasks (which use uv run internally)
+pixi run test             # pytest tests/
+pixi run lint             # ruff check
+pixi run format           # ruff format
+
+# Or use uv directly
+pixi run uv run flac-raster --help
+pixi run uv run python -c "import flac_raster; print(flac_raster.__version__)"
+```
+
+### Adding Dependencies
+
+```bash
+# Add Python package (via uv)
+pixi run uv add some-package
+
+# Add dev dependency
+pixi run uv add --dev pytest-xdist
+
+# Add optional dependency group
+pixi run uv add --optional cloud boto3
+
+# Update all dependencies to latest
+pixi run uv lock --upgrade
+pixi run uv sync
+```
+
+### Building and Publishing
+
+```bash
+# Build the package
+pixi run build            # or: pixi run uv build
+
+# Publish to PyPI
+pixi run uv publish
+
+# Or publish to test PyPI first
+pixi run uv publish --index testpypi
+```
+
+## Documentation
+
+- [Sentinel-2 Tutorial](docs/SENTINEL2_TUTORIAL.md) - Step-by-step guide with real satellite data
+- [Technical Analysis](docs/TECHNICAL_ANALYSIS.md) - Detailed technical analysis with Mermaid diagrams
+- [Publishing Guide](PUBLISHING.md) - Instructions for publishing releases
 
 ## Contributing
 
@@ -533,14 +423,6 @@ See [PUBLISHING.md](PUBLISHING.md) for detailed instructions on publishing relea
 5. Push to the branch: `git push origin feature-name`
 6. Create a Pull Request
 
-## Future Improvements
+## License
 
-- **Adaptive tiling**: Variable tile sizes based on data complexity
-- **Temporal support**: Time-series data with temporal indexing  
-- **Band selection**: Spectral subsetting for multispectral data
-- **Compression tuning**: Automatic optimization of FLAC parameters
-- **Caching strategy**: Intelligent tile caching for frequently accessed areas
-- **JavaScript client**: Browser-based FLAC decoder for web mapping
-- **Parallel processing**: Multi-threaded encoding/decoding
-- **More formats**: Support for HDF5, NetCDF, Zarr integration
-- **Performance optimization**: Memory usage and processing speed improvements
+MIT License - see [LICENSE](LICENSE) for details.
