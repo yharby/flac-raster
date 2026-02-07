@@ -2,188 +2,149 @@ name: CI/CD
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main, develop]
   pull_request:
-    branches: [ main ]
+    branches: [main]
   release:
-    types: [ published ]
-
-env:
-  PYTHON_VERSION: "3.11"
+    types: [published]
 
 jobs:
   test:
-    name: Test on ${{ matrix.os }} - Python ${{ matrix.python-version }}
+    name: Test on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 15
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: ["3.9", "3.10", "3.11", "3.12"]
-        
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ matrix.python-version }}
+      - name: Setup pixi
+        uses: prefix-dev/setup-pixi@v0.9.4
+        with:
+          pixi-version: v0.63.2
+          cache: true
+          auth-host: prefix.dev
 
-    - name: Install system dependencies (Ubuntu)
-      if: matrix.os == 'ubuntu-latest'
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y libflac-dev
+      - name: Install dependencies
+        run: pixi install
 
-    - name: Install system dependencies (macOS)
-      if: matrix.os == 'macos-latest'
-      run: |
-        brew install flac
+      - name: Sync Python packages with uv
+        run: pixi run uv sync --all-extras
 
-    - name: Install system dependencies (Windows)
-      if: matrix.os == 'windows-latest'
-      run: |
-        # Windows binaries are included with pyflac
-        echo "No additional system dependencies needed on Windows"
+      - name: Create test data
+        run: pixi run uv run python examples/create_test_data.py
 
-    - name: Install Python dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install build
-        pip install -e .
+      - name: Run pytest
+        run: pixi run test
 
-    - name: Create test data
-      run: |
-        python examples/create_test_data.py
+      - name: Test CLI help
+        run: pixi run uv run flac-raster --help
 
-    - name: Test CLI installation
-      run: |
-        flac-raster --help
+      - name: Test conversions
+        run: |
+          pixi run uv run flac-raster convert test_data/sample_dem.tif -o test_data/dem.flac --force
+          pixi run uv run flac-raster convert test_data/dem.flac -o test_data/dem_back.tif --force
+          pixi run uv run flac-raster compare test_data/sample_dem.tif test_data/dem_back.tif
 
-    - name: Test conversions
-      run: |
-        # Test DEM conversion (force overwrite since test data already exists)
-        flac-raster convert test_data/sample_dem.tif --force
-        flac-raster convert test_data/sample_dem.flac -o test_data/dem_test.tif --force
-        flac-raster compare test_data/sample_dem.tif test_data/dem_test.tif
-        
-        # Test RGB conversion
-        flac-raster convert test_data/sample_rgb.tif --force
-        flac-raster convert test_data/sample_rgb.flac -o test_data/rgb_test.tif --force
-        flac-raster compare test_data/sample_rgb.tif test_data/rgb_test.tif
-        
-        # Test multispectral conversion
-        flac-raster convert test_data/sample_multispectral.tif --force
-        flac-raster convert test_data/sample_multispectral.flac -o test_data/ms_test.tif --force
-        flac-raster compare test_data/sample_multispectral.tif test_data/ms_test.tif
+      - name: Test multi-band conversion
+        run: |
+          pixi run uv run flac-raster convert test_data/sample_rgb.tif -o test_data/rgb.flac --force
+          pixi run uv run flac-raster convert test_data/rgb.flac -o test_data/rgb_back.tif --force
+          pixi run uv run flac-raster compare test_data/sample_rgb.tif test_data/rgb_back.tif
 
-    - name: Test info command
-      run: |
-        flac-raster info test_data/sample_dem.tif
-        flac-raster info test_data/sample_dem.flac
+      - name: Test streaming format
+        run: |
+          pixi run uv run flac-raster convert test_data/sample_dem.tif --streaming --tile-size 128 -o test_data/dem_streaming.flac --force
+          pixi run uv run flac-raster extract test_data/dem_streaming.flac --center -o test_data/center_tile.tif
 
-    - name: Test spatial tiling and HTTP range streaming
-      run: |
-        # Test spatial conversion
-        flac-raster convert test_data/sample_dem.tif -o test_data/dem_spatial.flac --spatial --tile-size=256 --force
-        flac-raster spatial-info test_data/dem_spatial.flac
-        
-        # Test bbox queries (local files only in CI)
-        flac-raster query test_data/dem_spatial.flac --bbox="34.0,28.5,34.5,29.0"
-        
-        # Test RGB spatial conversion
-        flac-raster convert test_data/sample_rgb.tif -o test_data/rgb_spatial.flac --spatial --tile-size=128 --force
-        flac-raster spatial-info test_data/rgb_spatial.flac
-        flac-raster query test_data/rgb_spatial.flac --bbox="-120.0,36.98,-119.98,37.0"
+      - name: Test info command
+        run: |
+          pixi run uv run flac-raster info test_data/sample_dem.tif
+          pixi run uv run flac-raster info test_data/dem.flac
 
-    - name: Validate package structure
-      run: |
-        # Test that the package can be imported
-        python -c "from src.flac_raster.converter import RasterFLACConverter; print('Package imports correctly')"
-        python -c "from src.flac_raster.compare import compare_tiffs; print('Compare module imports correctly')"
-        python -c "from src.flac_raster.cli import app; print('CLI module imports correctly')"
-        python -c "from src.flac_raster.spatial_encoder import SpatialFLACStreamer; print('Spatial encoder imports correctly')"
+      - name: Validate with gdalinfo
+        run: |
+          pixi run gdalinfo test_data/sample_dem.tif
+          pixi run gdalinfo test_data/dem_back.tif
 
-    - name: Run integration tests
-      run: |
-        # Run integration tests for core functionality
-        echo "Running integration tests via CLI commands..."
-        
-        # Test lazy loading integration (local only, no internet dependency in CI)
-        python -c "
-        import sys, os
-        sys.path.insert(0, os.path.join('src'))
-        from flac_raster.spatial_encoder import SpatialFLACStreamer
-        from pathlib import Path
-        
-        # Test local spatial FLAC loading
-        test_file = Path('test_data/dem_spatial.flac')
-        if test_file.exists():
-            streamer = SpatialFLACStreamer(test_file)
-            print(f'[OK] Loaded spatial index with {len(streamer.spatial_index.frames)} tiles')
-            print(f'[OK] Total bytes: {streamer.spatial_index.total_bytes:,}')
-            
-            # Test bbox query
-            ranges = streamer.get_byte_ranges_for_bbox((34.0, 28.5, 34.5, 29.0))
-            print(f'[OK] Bbox query returned {len(ranges)} byte ranges')
-            print('[OK] All spatial encoding tests passed!')
-        else:
-            print('[ERROR] Spatial test file not found')
-            sys.exit(1)
-        "
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pixi
+        uses: prefix-dev/setup-pixi@v0.9.4
+        with:
+          pixi-version: v0.63.2
+          cache: true
+
+      - name: Install dependencies
+        run: pixi install
+
+      - name: Sync Python packages
+        run: pixi run uv sync --all-extras
+
+      - name: Run ruff check
+        run: pixi run lint
+
+      - name: Run ruff format check
+        run: pixi run uv run ruff format --check src/
 
   build:
     name: Build package
     runs-on: ubuntu-latest
-    needs: test
-    
+    needs: [test, lint]
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ env.PYTHON_VERSION }}
+      - name: Setup pixi
+        uses: prefix-dev/setup-pixi@v0.9.4
+        with:
+          pixi-version: v0.63.2
+          cache: true
 
-    - name: Install build dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install build twine
+      - name: Install dependencies
+        run: pixi install
 
-    - name: Build package
-      run: |
-        python -m build
+      - name: Build package with uv
+        run: pixi run build
 
-    - name: Check package
-      run: |
-        python -m twine check dist/*
+      - name: Check package with twine
+        run: |
+          pixi run uv run pip install twine
+          pixi run uv run twine check dist/*
 
-    - name: Upload build artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: dist
-        path: dist/
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
 
   publish:
     name: Publish to PyPI
     runs-on: ubuntu-latest
-    needs: [test, build]
+    needs: [test, lint, build]
     if: github.event_name == 'release' && github.event.action == 'published'
     environment: release
     permissions:
-      id-token: write  # For trusted publishing
+      id-token: write
 
     steps:
-    - name: Download build artifacts
-      uses: actions/download-artifact@v4
-      with:
-        name: dist
-        path: dist/
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
 
-    - name: Publish to PyPI
-      uses: pypa/gh-action-pypi-publish@release/v1
-      with:
-        print-hash: true
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          print-hash: true
