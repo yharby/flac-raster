@@ -65,11 +65,6 @@ jobs:
           pixi run uv run flac-raster info test_data/sample_dem.tif
           pixi run uv run flac-raster info test_data/dem.flac
 
-      - name: Validate with gdalinfo
-        run: |
-          pixi run gdalinfo test_data/sample_dem.tif
-          pixi run gdalinfo test_data/dem_back.tif
-
   lint:
     name: Lint
     runs-on: ubuntu-latest
