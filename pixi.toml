@@ -17,6 +17,3 @@ build = "uv build"
 [dependencies]
 python = ">=3.11,<3.14"
 uv = ">=0.6.0"
-# Rasterio needs GDAL from conda
-rasterio = ">=1.4.0"
-gdal = ">=3.10.3,<4"

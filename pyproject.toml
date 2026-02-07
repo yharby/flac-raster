@@ -25,8 +25,7 @@ classifiers = [
 requires-python = ">=3.11"
 dependencies = [
     "numpy>=2.0.0",
-    # rasterio is provided by conda/pixi (requires GDAL)
-    # Install via: conda install rasterio OR pixi install
+    "rasterio>=1.4.4",
     "typer>=0.15.0",
     "rich>=14.0.0",
     "tqdm>=4.66.0",
