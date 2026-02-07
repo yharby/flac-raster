@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FLAC-Raster Streaming Viewer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.2/proj4.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        dark: { 900: '#0a0a0f', 800: '#0f0f1a', 700: '#1a1a2e', 600: '#16213e' }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        #map { height: calc(100vh - 180px); }
+        @media (max-width: 640px) { #map { height: calc(100vh - 240px); } }
+        .info-visible #map { height: calc(100vh - 210px); }
+        @media (max-width: 640px) { .info-visible #map { height: calc(100vh - 280px); } }
+    </style>
+</head>
+<body class="bg-dark-900 text-white font-sans">
+
+    <!-- Header -->
+    <header class="bg-gradient-to-r from-dark-700 to-dark-600 border-b border-gray-700 px-4 py-3 sm:px-6">
+        <h1 class="text-lg sm:text-xl font-bold">FLAC-Raster Streaming Viewer</h1>
+        <p class="text-xs sm:text-sm text-gray-400">Netflix-style HTTP Range streaming for geospatial data</p>
+    </header>
+
+    <!-- Controls -->
+    <div class="bg-dark-700 px-4 py-3 sm:px-6 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+        <input type="text" id="flacUrl"
+               value="https://data.source.coop/youssef-harby/cloud-native-geocoding/sentinel_rgb_streaming.flac"
+               placeholder="Enter URL to streaming .flac file"
+               class="flex-1 px-4 py-2 bg-dark-800 border border-gray-600 rounded-lg text-sm focus:outline-none focus:border-blue-500 transition-colors">
+
+        <div class="flex gap-2 items-center justify-end flex-wrap">
+            <select id="bandMode" class="px-3 py-2 bg-dark-800 border border-gray-600 rounded-lg text-sm">
+                <option value="rgb">RGB (3-band)</option>
+                <option value="grayscale" selected>Grayscale</option>
+                <option value="r">Red band</option>
+                <option value="g">Green band</option>
+                <option value="b">Blue band</option>
+                <option value="ndvi">NDVI-like</option>
+            </select>
+            <button onclick="loadFlac()"
+                    class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg font-semibold text-sm transition-colors whitespace-nowrap">
+                Load FLAC
+            </button>
+            <button id="playBtn" onclick="playVisibleTiles()" disabled
+                    class="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg font-semibold text-sm transition-colors">
+                Play
+            </button>
+            <button id="stopBtn" onclick="stopAudio()" disabled
+                    class="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg font-semibold text-sm transition-colors">
+                Stop
+            </button>
+        </div>
+    </div>
+
+    <!-- Info Panel (below controls) -->
+    <div id="infoPanel" class="hidden bg-dark-800 border-b border-gray-700 px-4 py-2 sm:px-6">
+        <div class="flex flex-wrap gap-x-6 gap-y-1 text-xs sm:text-sm">
+            <div class="flex items-center gap-2">
+                <span class="text-gray-400">Tiles:</span>
+                <span id="tileCount" class="text-emerald-400 font-mono font-semibold">-</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="text-gray-400">Size:</span>
+                <span id="dimensions" class="text-emerald-400 font-mono">-</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="text-gray-400">CRS:</span>
+                <span id="crsInfo" class="text-emerald-400 font-mono">-</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="text-gray-400">Bands:</span>
+                <span id="bandCount" class="text-emerald-400 font-mono">-</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="text-gray-400">Type:</span>
+                <span id="dataType" class="text-emerald-400 font-mono">-</span>
+            </div>
+            <div class="hidden sm:block w-px h-4 bg-gray-600"></div>
+            <div class="flex items-center gap-2">
+                <span class="text-gray-400">Visible:</span>
+                <span id="visibleTiles" class="text-emerald-400 font-mono">0</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="text-gray-400">Loaded:</span>
+                <span id="loadedTiles" class="text-emerald-400 font-mono">0</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="text-gray-400">Downloaded:</span>
+                <span id="downloadedBytes" class="text-amber-400 font-mono font-bold">0 KB</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="text-gray-400">Saved:</span>
+                <span id="savedPercent" class="text-amber-400 font-mono font-bold">0%</span>
+            </div>
+            <div class="flex items-center gap-2 text-gray-500 italic">
+                <span>Click tile to play</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Map -->
+    <div id="map" class="w-full"></div>
+
+    <!-- Status Bar -->
+    <div id="status" class="bg-dark-800 px-4 py-2 text-xs sm:text-sm font-mono text-emerald-400 border-t border-gray-700">
+        Ready. Click "Load FLAC" to start.
+    </div>
+
+    <!-- Now Playing Indicator -->
+    <div id="nowPlaying" class="hidden fixed bottom-16 left-1/2 -translate-x-1/2 z-[1000] bg-purple-600/90 backdrop-blur px-4 py-2 rounded-full text-sm font-semibold shadow-lg flex items-center gap-2">
+        <span class="w-2 h-2 bg-white rounded-full animate-pulse"></span>
+        <span>Playing Tile <span id="playingTileId">0</span></span>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Global state
+        let map;
+        let spatialIndex = null;
+        let flacBaseUrl = '';
+        let tileDataOffset = 0;
+        let loadedTiles = {};
+        let tileOverlays = {};
+        let audioContext = null;
+        let currentAudioSource = null;
+        let totalDownloaded = 0;
+        let totalFileSize = 0;
+
+        // Terrain color map
+        const colorMap = [
+            [0, [0, 97, 71]], [0.15, [34, 139, 34]], [0.3, [154, 205, 50]],
+            [0.45, [255, 255, 0]], [0.6, [255, 165, 0]], [0.75, [139, 69, 19]],
+            [0.9, [255, 255, 255]], [1, [255, 255, 255]]
+        ];
+
+        function getColor(value, min, max) {
+            const n = Math.max(0, Math.min(1, (value - min) / (max - min)));
+            for (let i = 0; i < colorMap.length - 1; i++) {
+                if (n <= colorMap[i + 1][0]) {
+                    const t = (n - colorMap[i][0]) / (colorMap[i + 1][0] - colorMap[i][0]);
+                    const [r1, g1, b1] = colorMap[i][1];
+                    const [r2, g2, b2] = colorMap[i + 1][1];
+                    return [Math.round(r1 + t * (r2 - r1)), Math.round(g1 + t * (g2 - g1)), Math.round(b1 + t * (b2 - b1))];
+                }
+            }
+            return colorMap[colorMap.length - 1][1];
+        }
+
+        function initMap() {
+            map = L.map('map').setView([31.0, 33.5], 8);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; OSM, CARTO', maxZoom: 19
+            }).addTo(map);
+            map.on('moveend', onMapMove);
+            map.on('zoomend', onMapMove);
+        }
+
+        function log(msg) {
+            document.getElementById('status').textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+        }
+
+        function updateStats() {
+            document.getElementById('loadedTiles').textContent = Object.keys(loadedTiles).filter(k => loadedTiles[k]?.data).length;
+            document.getElementById('downloadedBytes').textContent = formatBytes(totalDownloaded);
+            if (totalFileSize > 0) {
+                document.getElementById('savedPercent').textContent = `${((1 - totalDownloaded / totalFileSize) * 100).toFixed(1)}%`;
+            }
+        }
+
+        function formatBytes(b) {
+            if (b < 1024) return b + ' B';
+            if (b < 1024 * 1024) return (b / 1024).toFixed(1) + ' KB';
+            return (b / (1024 * 1024)).toFixed(2) + ' MB';
+        }
+
+        function setupProjection(crs) {
+            if (crs === 'EPSG:32636') {
+                proj4.defs('EPSG:32636', '+proj=utm +zone=36 +datum=WGS84 +units=m +no_defs');
+            }
+        }
+
+        function bboxToLatLng(bbox) {
+            const [xmin, ymin, xmax, ymax] = bbox;
+            const sw = proj4('EPSG:32636', 'EPSG:4326', [xmin, ymin]);
+            const ne = proj4('EPSG:32636', 'EPSG:4326', [xmax, ymax]);
+            return [[sw[1], sw[0]], [ne[1], ne[0]]];
+        }
+
+        async function loadFlac() {
+            flacBaseUrl = document.getElementById('flacUrl').value.trim();
+            if (!flacBaseUrl) return log('Please enter a URL');
+
+            log('Fetching spatial index...');
+
+            try {
+                const headResp = await fetch(flacBaseUrl, { method: 'HEAD' });
+                totalFileSize = parseInt(headResp.headers.get('content-length') || '0');
+
+                const headerResp = await fetch(flacBaseUrl, { headers: { 'Range': 'bytes=0-3' } });
+                const headerBuffer = await headerResp.arrayBuffer();
+                const indexSize = new DataView(headerBuffer).getUint32(0, false);
+
+                totalDownloaded = 4;
+                log(`Index size: ${formatBytes(indexSize)}`);
+
+                const indexResp = await fetch(flacBaseUrl, { headers: { 'Range': `bytes=4-${4 + indexSize - 1}` } });
+                spatialIndex = JSON.parse(await indexResp.text());
+
+                totalDownloaded += indexSize;
+                tileDataOffset = 4 + indexSize;
+
+                setupProjection(spatialIndex.crs);
+
+                document.getElementById('infoPanel').classList.remove('hidden');
+                document.body.classList.add('info-visible');
+                map.invalidateSize(); // Recalculate map size
+                document.getElementById('tileCount').textContent = spatialIndex.frames.length;
+                document.getElementById('dimensions').textContent = `${spatialIndex.width}x${spatialIndex.height}`;
+                document.getElementById('crsInfo').textContent = spatialIndex.crs;
+                document.getElementById('bandCount').textContent = spatialIndex.bands || 1;
+                document.getElementById('dataType').textContent = spatialIndex.dtype || 'unknown';
+                document.getElementById('playBtn').disabled = false;
+
+                // Auto-select RGB mode if 3+ bands
+                if ((spatialIndex.bands || 1) >= 3) {
+                    document.getElementById('bandMode').value = 'rgb';
+                }
+
+                updateStats();
+
+                const allBboxes = spatialIndex.frames.map(f => f.bbox);
+                const globalBbox = [
+                    Math.min(...allBboxes.map(b => b[0])), Math.min(...allBboxes.map(b => b[1])),
+                    Math.max(...allBboxes.map(b => b[2])), Math.max(...allBboxes.map(b => b[3]))
+                ];
+                map.fitBounds(bboxToLatLng(globalBbox));
+
+                log(`Loaded ${spatialIndex.frames.length} tiles. Pan/zoom to stream.`);
+            } catch (err) {
+                log(`Error: ${err.message}`);
+            }
+        }
+
+        async function onMapMove() {
+            if (!spatialIndex) return;
+
+            const bounds = map.getBounds();
+            const zoom = map.getZoom();
+            const sw = proj4('EPSG:4326', 'EPSG:32636', [bounds.getWest(), bounds.getSouth()]);
+            const ne = proj4('EPSG:4326', 'EPSG:32636', [bounds.getEast(), bounds.getNorth()]);
+            const viewBbox = [sw[0], sw[1], ne[0], ne[1]];
+
+            const visibleTiles = spatialIndex.frames.filter(tile => {
+                const [txmin, tymin, txmax, tymax] = tile.bbox;
+                return !(txmax < viewBbox[0] || txmin > viewBbox[2] || tymax < viewBbox[1] || tymin > viewBbox[3]);
+            });
+
+            document.getElementById('visibleTiles').textContent = visibleTiles.length;
+
+            const maxTiles = zoom < 10 ? 4 : zoom < 12 ? 9 : 16;
+            for (const tile of visibleTiles.slice(0, maxTiles)) {
+                if (!loadedTiles[tile.frame_id]) loadTile(tile);
+            }
+        }
+
+        async function loadTile(tile) {
+            const tileId = tile.frame_id;
+            loadedTiles[tileId] = 'loading';
+            log(`Streaming tile ${tileId}...`);
+
+            try {
+                const startByte = tileDataOffset + tile.byte_offset;
+                const resp = await fetch(flacBaseUrl, { headers: { 'Range': `bytes=${startByte}-${startByte + tile.byte_size - 1}` } });
+                const flacData = await resp.arrayBuffer();
+
+                totalDownloaded += flacData.byteLength;
+                updateStats();
+
+                // Decode FLAC to get actual PCM samples
+                if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const audioBuffer = await audioContext.decodeAudioData(flacData.slice(0));
+
+                // Extract channel data as Float32Arrays
+                const channels = audioBuffer.numberOfChannels;
+                const channelData = [];
+                for (let c = 0; c < channels; c++) {
+                    channelData.push(audioBuffer.getChannelData(c));
+                }
+
+                const imageUrl = createTileVisualization(channelData, tile);
+                const bounds = bboxToLatLng(tile.bbox);
+
+                const overlay = L.imageOverlay(imageUrl, bounds, { opacity: 0.85, interactive: true }).addTo(map);
+                overlay.on('click', () => playTileAudio(tileId));
+                overlay.getElement().style.cursor = 'pointer';
+                overlay.getElement().title = `Tile ${tileId} - Click to play`;
+
+                tileOverlays[tileId] = overlay;
+                loadedTiles[tileId] = { data: flacData, audioBuffer, channelData, tile };
+
+                log(`Tile ${tileId} (${formatBytes(flacData.byteLength)}, ${channels}ch) - click to play`);
+            } catch (err) {
+                log(`Error: ${err.message}`);
+                console.error('Tile load error:', err);
+                delete loadedTiles[tileId];
+            }
+        }
+
+        function createTileVisualization(channelData, tile) {
+            const canvas = document.createElement('canvas');
+            const width = tile.window.width;
+            const height = tile.window.height;
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            const imageData = ctx.createImageData(width, height);
+
+            const bandMode = document.getElementById('bandMode').value;
+            const channels = channelData.length;
+            const pixelCount = width * height;
+
+            // Find min/max for normalization (samples are float32 in range roughly -1 to 1, but raster data varies)
+            let mins = [], maxs = [];
+            for (let c = 0; c < channels; c++) {
+                let min = Infinity, max = -Infinity;
+                const data = channelData[c];
+                for (let i = 0; i < Math.min(data.length, pixelCount); i++) {
+                    if (data[i] < min) min = data[i];
+                    if (data[i] > max) max = data[i];
+                }
+                mins.push(min);
+                maxs.push(max);
+            }
+
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const pixelIdx = y * width + x;
+                    const imgIdx = pixelIdx * 4;
+
+                    let r, g, b;
+
+                    if (bandMode === 'rgb' && channels >= 3) {
+                        // Normalize each channel to 0-255
+                        r = Math.round(255 * (channelData[0][pixelIdx] - mins[0]) / (maxs[0] - mins[0] || 1));
+                        g = Math.round(255 * (channelData[1][pixelIdx] - mins[1]) / (maxs[1] - mins[1] || 1));
+                        b = Math.round(255 * (channelData[2][pixelIdx] - mins[2]) / (maxs[2] - mins[2] || 1));
+                    } else if (bandMode === 'r' && channels >= 1) {
+                        const v = Math.round(255 * (channelData[0][pixelIdx] - mins[0]) / (maxs[0] - mins[0] || 1));
+                        r = v; g = 0; b = 0;
+                    } else if (bandMode === 'g' && channels >= 2) {
+                        const v = Math.round(255 * (channelData[1][pixelIdx] - mins[1]) / (maxs[1] - mins[1] || 1));
+                        r = 0; g = v; b = 0;
+                    } else if (bandMode === 'b' && channels >= 3) {
+                        const v = Math.round(255 * (channelData[2][pixelIdx] - mins[2]) / (maxs[2] - mins[2] || 1));
+                        r = 0; g = 0; b = v;
+                    } else if (bandMode === 'ndvi' && channels >= 2) {
+                        // Pseudo-NDVI using channels 0 (red) and 1 (could be NIR)
+                        const red = channelData[0][pixelIdx];
+                        const nir = channelData[1][pixelIdx];
+                        const ndvi = (nir - red) / (Math.abs(nir) + Math.abs(red) + 0.0001);
+                        const normalized = (ndvi + 1) / 2;
+                        const color = getColor(normalized, 0, 1);
+                        r = color[0]; g = color[1]; b = color[2];
+                    } else {
+                        // Grayscale from first channel
+                        const v = (channelData[0][pixelIdx] - mins[0]) / (maxs[0] - mins[0] || 1);
+                        const color = getColor(v, 0, 1);
+                        r = color[0]; g = color[1]; b = color[2];
+                    }
+
+                    imageData.data[imgIdx] = Math.max(0, Math.min(255, r));
+                    imageData.data[imgIdx + 1] = Math.max(0, Math.min(255, g));
+                    imageData.data[imgIdx + 2] = Math.max(0, Math.min(255, b));
+                    imageData.data[imgIdx + 3] = 255;
+                }
+            }
+
+            ctx.putImageData(imageData, 0, 0);
+            return canvas.toDataURL();
+        }
+
+        async function playTileAudio(tileId) {
+            const tileData = loadedTiles[tileId];
+            if (!tileData?.audioBuffer) return log(`Tile ${tileId} not loaded`);
+
+            stopAudio();
+            log(`Playing tile ${tileId}...`);
+
+            try {
+                if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+                // Show now playing indicator
+                document.getElementById('nowPlaying').classList.remove('hidden');
+                document.getElementById('playingTileId').textContent = tileId;
+
+                // Highlight tile
+                if (tileOverlays[tileId]) tileOverlays[tileId].setOpacity(1.0);
+
+                // Use the already-decoded audio buffer
+                currentAudioSource = audioContext.createBufferSource();
+                currentAudioSource.buffer = tileData.audioBuffer;
+
+                const gain = audioContext.createGain();
+                gain.gain.value = 0.4;
+                currentAudioSource.connect(gain);
+                gain.connect(audioContext.destination);
+
+                currentAudioSource.start();
+                document.getElementById('stopBtn').disabled = false;
+
+                currentAudioSource.onended = () => {
+                    document.getElementById('stopBtn').disabled = true;
+                    document.getElementById('nowPlaying').classList.add('hidden');
+                    if (tileOverlays[tileId]) tileOverlays[tileId].setOpacity(0.85);
+                    log('Audio finished');
+                };
+            } catch (err) {
+                log(`Audio error: ${err.message}`);
+            }
+        }
+
+        function playVisibleTiles() {
+            const loaded = Object.entries(loadedTiles).filter(([k, v]) => v?.audioBuffer);
+            if (loaded.length === 0) return log('No tiles loaded. Pan to load tiles.');
+            playTileAudio(parseInt(loaded[0][0]));
+        }
+
+        function stopAudio() {
+            if (currentAudioSource) {
+                currentAudioSource.stop();
+                currentAudioSource = null;
+            }
+            document.getElementById('stopBtn').disabled = true;
+            document.getElementById('nowPlaying').classList.add('hidden');
+            Object.values(tileOverlays).forEach(o => o.setOpacity(0.85));
+        }
+
+        // Re-render tiles when band mode changes
+        document.getElementById('bandMode').addEventListener('change', () => {
+            log('Switching band mode...');
+            // Re-render all loaded tiles
+            for (const [tileId, tileData] of Object.entries(loadedTiles)) {
+                if (tileData?.data && tileOverlays[tileId]) {
+                    const imageUrl = createTileVisualization(tileData.data, tileData.tile);
+                    tileOverlays[tileId].setUrl(imageUrl);
+                }
+            }
+            log(`Band mode: ${document.getElementById('bandMode').value}`);
+        });
+
+        initMap();
+    </script>
+</body>
+</html>

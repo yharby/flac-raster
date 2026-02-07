@@ -533,13 +533,15 @@ def _create_streaming_flac(
     converter = RasterFLACConverter()
 
     with rasterio.open(input_path) as src:
-        console.print(f"  Dimensions: {src.width}x{src.height}")
+        console.print(f"  Dimensions: {src.width}x{src.height}, {src.count} band(s)")
 
         spatial_index = {
             "crs": str(src.crs),
             "transform": list(src.transform),
             "width": src.width,
             "height": src.height,
+            "bands": src.count,
+            "dtype": str(src.dtypes[0]),
             "tile_size": tile_size,
             "frames": [],
         }
