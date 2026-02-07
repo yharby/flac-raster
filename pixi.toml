@@ -3,21 +3,20 @@ authors = ["Youssef-Harby <me@youssefharby.com>"]
 channels = ["conda-forge"]
 name = "flac-raster"
 platforms = ["win-64", "linux-64", "osx-64", "osx-arm64"]
-version = "0.1.2"
+version = "0.2.0"
 
 [tasks]
+# Use uv for all Python package management
+install = "uv sync"
+install-dev = "uv sync --all-extras"
+test = "uv run pytest tests/ -v"
+lint = "uv run ruff check src/"
+format = "uv run ruff format src/"
+build = "uv build"
 
 [dependencies]
-python = ">=3.13.5,<3.14"
-rasterio = ">=1.4.3,<2"
-numpy = ">=2.3.1,<3"
-typer = ">=0.16.0,<0.17"
-rich = ">=14.0.0,<15"
-tqdm = ">=4.67.1,<5"
-pytest = ">=8.4.1,<9"
-pytest-cov = ">=6.2.1,<7"
-mutagen = ">=1.47.0,<2"
-
-[pypi-dependencies]
-pyflac = ">=3.0.0, <4"
-requests = ">=2.32.4, <3"
+python = ">=3.11,<3.14"
+uv = ">=0.6.0"
+# Rasterio needs GDAL from conda
+rasterio = ">=1.4.0"
+gdal = ">=3.10.3,<4"
