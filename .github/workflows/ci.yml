@@ -27,7 +27,6 @@ jobs:
         with:
           pixi-version: v0.63.2
           cache: true
-          auth-host: prefix.dev
 
       - name: Install dependencies
         run: pixi install
