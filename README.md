@@ -1,6 +1,6 @@
 # FLAC-Raster: Experimental Raster to FLAC Converter
 
-[![CI/CD](https://github.com/Youssef-Harby/flac-raster/actions/workflows/ci.yml/badge.svg)](https://github.com/Youssef-Harby/flac-raster/actions/workflows/ci.yml)
+[![CI/CD](https://github.com/yharby/flac-raster/actions/workflows/ci.yml/badge.svg)](https://github.com/yharby/flac-raster/actions/workflows/ci.yml)
 [![PyPI version](https://badge.fury.io/py/flac-raster.svg)](https://badge.fury.io/py/flac-raster)
 [![Python versions](https://img.shields.io/pypi/pyversions/flac-raster.svg)](https://pypi.org/project/flac-raster/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -41,7 +41,7 @@ FLAC-Raster supports two formats:
 curl -fsSL https://pixi.sh/install.sh | bash
 
 # Clone and setup
-git clone https://github.com/Youssef-Harby/flac-raster.git
+git clone https://github.com/yharby/flac-raster.git
 cd flac-raster
 
 # Install with default features
@@ -99,6 +99,7 @@ flac-raster convert s3://bucket/data.tif -o output.flac
 ```
 
 Options:
+
 - `--output, -o`: Output file path
 - `--compression, -c`: FLAC compression level 0-8 (default: 5)
 - `--streaming`: Create streaming format with independent tiles
@@ -139,6 +140,7 @@ flac-raster extract https://cdn.example.com/streaming.flac --center -o center.ti
 ```
 
 Options:
+
 - `--tile-id`: Extract specific tile by ID
 - `--bbox, -b`: Bounding box as 'xmin,ymin,xmax,ymax'
 - `--center`: Extract center tile
@@ -158,6 +160,7 @@ flac-raster query spatial.flac --bbox "xmin,ymin,xmax,ymax" --format ranges
 ```
 
 Options:
+
 - `--bbox, -b`: Bounding box to query (required)
 - `--format, -f`: Output format: 'ranges' or 'data'
 - `--output, -o`: Output file for extracted data
@@ -221,16 +224,16 @@ data, metadata = await read_geotiff_async("https://example.com/cog.tif")
 
 ## Supported Data Types
 
-| Data Type | Bits | Use Cases |
-|-----------|------|-----------|
-| uint8 | 8-bit | RGB composites, classification maps |
-| int8 | 8-bit | Signed byte data |
-| uint16 | 16-bit | Sentinel-2, Landsat, most satellite imagery |
-| int16 | 16-bit | DEMs, signed integer data |
-| uint32 | 32-bit | Large count data |
-| int32 | 32-bit | Signed 32-bit integer data |
-| float32 | 32-bit | Reflectance, NDVI, processed data |
-| float64 | 64-bit | High-precision floating point |
+| Data Type | Bits   | Use Cases                                   |
+| --------- | ------ | ------------------------------------------- |
+| uint8     | 8-bit  | RGB composites, classification maps         |
+| int8      | 8-bit  | Signed byte data                            |
+| uint16    | 16-bit | Sentinel-2, Landsat, most satellite imagery |
+| int16     | 16-bit | DEMs, signed integer data                   |
+| uint32    | 32-bit | Large count data                            |
+| int32     | 32-bit | Signed 32-bit integer data                  |
+| float32   | 32-bit | Reflectance, NDVI, processed data           |
+| float64   | 64-bit | High-precision floating point               |
 
 All data types are properly normalized to the audio range and can be perfectly reconstructed.
 
@@ -238,12 +241,12 @@ All data types are properly normalized to the audio range and can be perfectly r
 
 FLAC-Raster supports multiple remote storage backends:
 
-| Protocol | Example | Requirements |
-|----------|---------|--------------|
-| HTTP/HTTPS | `https://example.com/data.flac` | Built-in |
-| Amazon S3 | `s3://bucket/path/data.tif` | `pip install flac-raster[cloud]` |
-| Azure Blob | `az://container/path/data.tif` | `pip install flac-raster[cloud]` |
-| Google Cloud | `gs://bucket/path/data.tif` | `pip install flac-raster[cloud]` |
+| Protocol     | Example                         | Requirements                     |
+| ------------ | ------------------------------- | -------------------------------- |
+| HTTP/HTTPS   | `https://example.com/data.flac` | Built-in                         |
+| Amazon S3    | `s3://bucket/path/data.tif`     | `pip install flac-raster[cloud]` |
+| Azure Blob   | `az://container/path/data.tif`  | `pip install flac-raster[cloud]` |
+| Google Cloud | `gs://bucket/path/data.tif`     | `pip install flac-raster[cloud]` |
 
 For cloud storage, credentials are read from environment variables or default credential chains.
 
@@ -251,19 +254,19 @@ For cloud storage, credentials are read from environment variables or default cr
 
 ### Compression Results
 
-| Dataset | Original | FLAC | Compression |
-|---------|----------|------|-------------|
-| DEM (1201x1201, int16) | 2.8 MB | 185 KB | 15.25x |
-| Multispectral (200x200x6, uint8) | 235 KB | 32 KB | 7.38x |
-| RGB (256x256x3, uint8) | 193 KB | 27 KB | 7.26x |
+| Dataset                          | Original | FLAC   | Compression |
+| -------------------------------- | -------- | ------ | ----------- |
+| DEM (1201x1201, int16)           | 2.8 MB   | 185 KB | 15.25x      |
+| Multispectral (200x200x6, uint8) | 235 KB   | 32 KB  | 7.38x       |
+| RGB (256x256x3, uint8)           | 193 KB   | 27 KB  | 7.26x       |
 
 ### HTTP Range Streaming Efficiency
 
-| Use Case | Download Size | Full File | Savings |
-|----------|---------------|-----------|---------|
-| Single tile | 1.5 MB | 185 MB | 99.2% |
-| Corner tile | 0.8 MB | 185 MB | 99.5% |
-| Bbox query | 0.8-1.5 MB | 185 MB | 99%+ |
+| Use Case    | Download Size | Full File | Savings |
+| ----------- | ------------- | --------- | ------- |
+| Single tile | 1.5 MB        | 185 MB    | 99.2%   |
+| Corner tile | 0.8 MB        | 185 MB    | 99.5%   |
+| Bbox query  | 0.8-1.5 MB    | 185 MB    | 99%+    |
 
 ## Technical Details
 

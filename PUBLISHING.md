@@ -5,6 +5,7 @@ This document describes how to publish FLAC-Raster to PyPI using GitHub Actions.
 ## Setup
 
 ### 1. PyPI Account Setup
+
 1. Create an account on [PyPI](https://pypi.org/)
 2. Enable 2FA on your account
 3. Create an API token:
@@ -13,23 +14,26 @@ This document describes how to publish FLAC-Raster to PyPI using GitHub Actions.
    - Copy the token (starts with `pypi-`)
 
 ### 2. GitHub Repository Setup
+
 1. Go to your repository Settings → Secrets and variables → Actions
 2. Add a new repository secret:
    - Name: `PYPI_API_TOKEN`
    - Value: Your PyPI API token (including the `pypi-` prefix)
 
 ### 3. Set up Trusted Publishing (Recommended)
+
 For enhanced security, you can use PyPI's trusted publishing instead of API tokens:
 
 1. Go to [PyPI Trusted Publishers](https://pypi.org/manage/account/publishing/)
 2. Add a new trusted publisher:
-   - Repository name: `Youssef-Harby/flac-raster`
+   - Repository name: `yharby/flac-raster`
    - Workflow name: `ci.yml`
    - Environment name: `release`
 
 ## Publishing Process
 
 ### Automatic Publishing (Recommended)
+
 The GitHub Actions workflow will automatically publish to PyPI when you create a release:
 
 1. **Update version** in `pyproject.toml`
@@ -45,6 +49,7 @@ The GitHub Actions workflow will automatically publish to PyPI when you create a
    - Publish to PyPI
 
 ### Manual Publishing
+
 If you need to publish manually:
 
 ```bash
@@ -67,12 +72,14 @@ python -m twine upload dist/*
 ## Version Management
 
 This project uses semantic versioning (SemVer):
+
 - `MAJOR.MINOR.PATCH` (e.g., `1.2.3`)
 - Increment MAJOR for breaking changes
 - Increment MINOR for new features
 - Increment PATCH for bug fixes
 
 Update the version in `pyproject.toml`:
+
 ```toml
 [project]
 version = "0.1.0"
@@ -104,6 +111,7 @@ Before creating a release:
 4. **Tests failed**: Fix test failures before releasing.
 
 ### Testing the Package
+
 After publishing, test the installation:
 
 ```bash
@@ -121,12 +129,14 @@ flac-raster --help
 ## GitHub Actions Configuration
 
 The CI workflow (`.github/workflows/ci.yml`) handles:
+
 - Testing on multiple Python versions (3.9-3.12)
 - Testing on multiple OS (Ubuntu, Windows, macOS)
 - Building the package
 - Publishing to PyPI on release
 
 Key environment variables:
+
 - `PYPI_API_TOKEN`: Your PyPI API token (set in GitHub secrets)
 
 ## Security Notes

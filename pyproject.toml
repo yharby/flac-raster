@@ -7,11 +7,18 @@ name = "flac-raster"
 version = "0.2.0"
 description = "Convert GeoTIFF raster data to FLAC format with spatial streaming support"
 readme = "README.md"
-license = {text = "MIT"}
-authors = [
-    {name = "Youssef Harby", email = "me@youssefharby.com"}
+license = { text = "MIT" }
+authors = [{ name = "Youssef Harby", email = "me@youssefharby.com" }]
+keywords = [
+    "raster",
+    "flac",
+    "geospatial",
+    "compression",
+    "tiff",
+    "cog",
+    "streaming",
+    "satellite",
 ]
-keywords = ["raster", "flac", "geospatial", "compression", "tiff", "cog", "streaming", "satellite"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
@@ -41,37 +48,24 @@ dev = [
     "pytest-asyncio>=0.24.0",
     "ruff>=0.9.0",
 ]
-cloud = [
-    "obstore>=0.3.0",
-]
-async = [
-    "async-geotiff>=0.2.0",
-    "obstore>=0.3.0",
-]
-all = [
-    "obstore>=0.3.0",
-    "async-geotiff>=0.2.0",
-]
+cloud = ["obstore>=0.3.0"]
+async = ["async-geotiff>=0.2.0", "obstore>=0.3.0"]
+all = ["obstore>=0.3.0", "async-geotiff>=0.2.0"]
 
 [project.scripts]
 flac-raster = "flac_raster.cli:app"
 
 [project.urls]
-Homepage = "https://github.com/Youssef-Harby/flac-raster"
-Repository = "https://github.com/Youssef-Harby/flac-raster"
-Issues = "https://github.com/Youssef-Harby/flac-raster/issues"
-Documentation = "https://github.com/Youssef-Harby/flac-raster#readme"
+Homepage = "https://github.com/yharby/flac-raster"
+Repository = "https://github.com/yharby/flac-raster"
+Issues = "https://github.com/yharby/flac-raster/issues"
+Documentation = "https://github.com/yharby/flac-raster#readme"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/flac_raster"]
 
 [tool.hatch.build.targets.sdist]
-include = [
-    "/src",
-    "/tests",
-    "/README.md",
-    "/LICENSE",
-]
+include = ["/src", "/tests", "/README.md", "/LICENSE"]
 
 [tool.ruff]
 line-length = 100
@@ -92,6 +86,4 @@ testpaths = ["tests"]
 asyncio_mode = "auto"
 
 [dependency-groups]
-dev = [
-    "twine>=6.2.0",
-]
+dev = ["twine>=6.2.0"]
