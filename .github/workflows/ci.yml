@@ -113,13 +113,14 @@ jobs:
       - name: Install dependencies
         run: pixi install
 
+      - name: Sync Python packages
+        run: pixi run uv sync --all-extras
+
       - name: Build package with uv
         run: pixi run build
 
       - name: Check package with twine
-        run: |
-          pixi run uv run pip install twine
-          pixi run uv run twine check dist/*
+        run: pixi run uv run twine check dist/*
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4

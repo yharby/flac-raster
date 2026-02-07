@@ -90,3 +90,8 @@ prerelease = "if-necessary-or-explicit"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+
+[dependency-groups]
+dev = [
+    "twine>=6.2.0",
+]
